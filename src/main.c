@@ -15,10 +15,17 @@
       perror(buffer);                                                   \
   } while (0)
 
+
+struct Client {
+  int socket;
+  int connected;
+};
+
 struct Server {
   int socket;
   int port;
-  int clients[1024];
+
+  struct Client clients[1024];
   int client_count;
 };
 
@@ -83,7 +90,9 @@ int accept_client(struct Server *server) {
     return -1;
   }
 
-  server->clients[server->client_count] = client_socket;
+  struct Client client = { .socket = client_socket, .connected = true };
+
+  server->clients[server->client_count] = client;
   server->client_count++;
 
   return 0;
