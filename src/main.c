@@ -33,6 +33,21 @@ int create_server(int port, struct Server *server) {
     return server_socket;
   }
 
+  /* Define el maximo de tiempo que un socket bloquea al leer un mensaje */
+  struct timeval timeout;
+  timeout.tv_sec = 1;
+  timeout.tv_usec = 0;
+
+  int r = setsockopt(server_socket,
+                     SOL_SOCKET,
+                     SO_RCVTIMEO,
+                     (char *)&timeout,
+                     sizeof(timeout));
+
+  if (r < 0) {
+    return -1;
+  }
+
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = INADDR_ANY;
   serv_addr.sin_port = htons(port);
