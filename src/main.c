@@ -98,6 +98,18 @@ int accept_client(struct Server *server) {
   return 0;
 }
 
+void broadcast(struct Server *server, char *message, int message_length) {
+  for (int i = 0; i < server->client_count; i++) {
+    for (int fails = 0; fails < 5; fails++) {
+      int r = send(server->clients[i].socket, message, message_length, 0);
+
+      if (r == 0) {
+        break;
+      }
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   int port;
 
