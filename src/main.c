@@ -36,6 +36,17 @@ int create_server(int port) {
   return server_socket;
 }
 
+int accept_client(int server_socket) {
+  struct sockaddr_in client_addr;
+  int client_size = sizeof(client_addr);
+
+  int client_socket = accept(server_socket,
+                             (struct sockaddr *)&client_addr,
+                             &client_size);
+
+  return client_socket;
+}
+
 int main(int argc, char **argv) {
   int port;
 
@@ -53,7 +64,14 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  printf("Servidor iniciado\n", server_socket);
+  printf("Servidor iniciado y escuchando en el puerto: %d\n", port);
+
+  int client_socket = accept_client(server_socket);
+
+  if (client_socket < 0) {
+    perror("Error al aceptar un nuevo cliente");
+    return -1;
+  }
 
   return 0;
 }
