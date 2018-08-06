@@ -88,8 +88,8 @@ int accept_client(struct Server *server) {
                              (struct sockaddr *)&client_addr,
                              &client_size);
 
-  if (client_socket < 0) {
-    return -1;
+  if (client_socket < 0 ) {
+    return errno == EWOULDBLOCK ? 0 : -1;
   }
 
   struct Client client = { .socket = client_socket, .connected = true };
@@ -153,17 +153,15 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  printf("Servidor iniciado y escuchando en el puerto: %d\n", server.port);
+  fprintf(stderr, "DEBUG: Servidor iniciado y escuchando en el puerto: %d\n", server.port);
 
-  int client_socket = accept_client(&server);
+  while (true) {
+    int client_socket = accept_client(&server);
 
     if (client_socket < 0) {
       error("Error al aceptar un nuevo cliente");
-      return -1;
     }
   }
-
-  printf("Nuevo client\n Numero de clientes conectados: %d\n", server.client_count);
 
   return 0;
 }
