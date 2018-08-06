@@ -27,6 +27,8 @@ struct Server {
 
   struct Client clients[1024];
   int client_count;
+
+  char messages[1024][4096];
 };
 
 int create_server(int port, struct Server *server) {
@@ -108,6 +110,30 @@ void broadcast(struct Server *server, char *message, int message_length) {
       }
     }
   }
+}
+
+int accept_message(struct Server *server) {
+  for (int i = 0; i < server->client_count; i++) {
+    int buffer_length = 4096;
+    char buffer[buffer_length];
+    memset(buffer, '\0', buffer_length);
+
+    int r = recv(server->clients[i].socket, buffer, buffer_length, 0);
+
+    if (r < 0 && errno == EWOULDBLOCK) {
+      continue;
+    }
+
+    for (int j = 0; j < server->client_count; j++) {
+      if (j == i) {
+        continue;
+      }
+
+      broadcast(server, buffer, r);
+    }
+  }
+
+  return 0;
 }
 
 int main(int argc, char **argv) {
