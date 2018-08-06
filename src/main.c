@@ -1,10 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+
+#define error(msg) do { \
+      int buffer_length = 2048; \
+      char buffer[buffer_length]; \
+      snprintf(buffer, buffer_length, "Error: %s\n: Linea: %d\n", msg, __LINE__); \
+      perror(buffer);                                                   \
+  } while (0)
 
 struct Server {
   int socket;
@@ -78,7 +87,7 @@ int main(int argc, char **argv) {
   struct Server server;
 
   if (create_server(port, &server) < 0) {
-    perror("Error al iniciar el servidor: ");
+    error("Error al iniciar el servidor: ");
     return -1;
   }
 
@@ -86,9 +95,10 @@ int main(int argc, char **argv) {
 
   int client_socket = accept_client(&server);
 
-  if (client_socket < 0) {
-    perror("Error al aceptar un nuevo cliente");
-    return -1;
+    if (client_socket < 0) {
+      error("Error al aceptar un nuevo cliente");
+      return -1;
+    }
   }
 
   printf("Nuevo client\n Numero de clientes conectados: %d\n", server.client_count);
