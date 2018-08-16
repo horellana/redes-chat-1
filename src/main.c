@@ -4,13 +4,20 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#endif
+
+#define BUFFER_SIZE 1024
 
 #define error(msg) do { \
-      int buffer_length = 2048; \
-      char buffer[buffer_length]; \
+      char buffer[BUFFER_SIZE]; \
       snprintf(buffer, buffer_length, "Error: %s\n: Linea: %d\n", msg, __LINE__); \
       perror(buffer);                                                   \
   } while (0)
@@ -27,9 +34,25 @@ struct Server {
 
   struct Client clients[1024];
   int client_count;
-
-  char messages[1024][4096];
 };
+
+int config_server(int server) {
+	int enable = 1;
+	int r = setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+
+	if (r < 0) {
+		return -1;
+	}
+
+#ifdef _WIN32
+	int iMode = 1;
+	int iResult = ioctlsocket(server, FIONBIO, &iMode);
+	if (iResult != NO_ERROR) {
+		return -1;
+	}
+#endif
+	return 0;
+}
 
 int create_server(int port, struct Server *server) {
   int server_socket;
@@ -40,21 +63,6 @@ int create_server(int port, struct Server *server) {
 
   if (server_socket < 0) {
     return server_socket;
-  }
-
-  /* Define el maximo de tiempo que un socket bloquea al leer un mensaje */
-  struct timeval timeout;
-  timeout.tv_sec = 1;
-  timeout.tv_usec = 0;
-
-  int r = setsockopt(server_socket,
-                     SOL_SOCKET,
-                     SO_RCVTIMEO,
-                     (char *)&timeout,
-                     sizeof(timeout));
-
-  if (r < 0) {
-    return -1;
   }
 
   serv_addr.sin_family = AF_INET;
@@ -69,6 +77,10 @@ int create_server(int port, struct Server *server) {
     return bind_result;
   }
 
+  if (config_server(server_socket) < 0) {
+	  return -1;
+  }
+      
   if (listen(server_socket, 5) < 0) {
     return -1;
   }
@@ -114,11 +126,10 @@ void broadcast(struct Server *server, char *message, int message_length) {
 
 int accept_message(struct Server *server) {
   for (int i = 0; i < server->client_count; i++) {
-    int buffer_length = 4096;
-    char buffer[buffer_length];
-    memset(buffer, '\0', buffer_length);
+    char buffer[BUFFER_SIZE];
+    memset(buffer, '\0', BUFFER_SIZE);
 
-    int r = recv(server->clients[i].socket, buffer, buffer_length, 0);
+    int r = recv(server->clients[i].socket, buffer, BUFFER_SIZE, 0);
 
     if (r < 0 && errno == EWOULDBLOCK) {
       continue;
@@ -137,6 +148,19 @@ int accept_message(struct Server *server) {
 }
 
 int main(int argc, char **argv) {
+  	#ifdef _WIN32
+	WSADATA wsaData;
+
+	int iResult;
+
+	// Initialize Winsock
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (iResult != 0) {
+		fprintf(stderr, "WSAStartup failed: %d\n", iResult);
+		return 1;
+	}
+	#endif
+      
   int port;
 
   if (argc < 2) {
