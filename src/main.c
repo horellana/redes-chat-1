@@ -18,8 +18,8 @@
 
 #define error(msg) do { \
       char buffer[BUFFER_SIZE]; \
-      snprintf(buffer, buffer_length, "Error: %s\n: Linea: %d\n", msg, __LINE__); \
-      perror(buffer);                                                   \
+      snprintf(buffer, BUFFER_SIZE, "Error: %s\n: Linea: %d\n", msg, __LINE__); \
+      /* perror(buffer);        */                                           \
   } while (0)
 
 
@@ -36,6 +36,18 @@ struct Server {
   int client_count;
 };
 
+int configure_async_socket(int socket) {
+#ifdef _WIN32
+	int iMode = 1;
+	int iResult = ioctlsocket(socket, FIONBIO, &iMode);
+	if (iResult != NO_ERROR) {
+		return -1;
+	}
+#endif
+
+	return 0;
+}
+
 int config_server(int server) {
 	int enable = 1;
 	int r = setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
@@ -44,13 +56,12 @@ int config_server(int server) {
 		return -1;
 	}
 
-#ifdef _WIN32
-	int iMode = 1;
-	int iResult = ioctlsocket(server, FIONBIO, &iMode);
-	if (iResult != NO_ERROR) {
+	r = configure_async_socket(server);
+
+	if (r < 0) {
 		return -1;
 	}
-#endif
+
 	return 0;
 }
 
@@ -112,15 +123,15 @@ int accept_client(struct Server *server) {
   return 0;
 }
 
-void broadcast(struct Server *server, char *message, int message_length) {
-  for (int i = 0; i < server->client_count; i++) {
-    for (int fails = 0; fails < 5; fails++) {
-      int r = send(server->clients[i].socket, message, message_length, 0);
+void send_message(int client, char *message, int message_length) {
+	send(client, message, message_length, 0);
+}
 
-      if (r == 0) {
-        break;
-      }
-    }
+void broadcast(struct Server *server, char *message, int message_length, int sender) {
+  for (int i = 0; i < server->client_count; i++) {
+	  if (i != sender) {
+		  send_message(server->clients[i].socket, message, message_length);
+	  }
   }
 }
 
@@ -134,14 +145,10 @@ int accept_message(struct Server *server) {
     if (r < 0 && errno == EWOULDBLOCK) {
       continue;
     }
-
-    for (int j = 0; j < server->client_count; j++) {
-      if (j == i) {
-        continue;
-      }
-
-      broadcast(server, buffer, r);
-    }
+	else {
+		broadcast(server, buffer, r, i);
+	}
+	
   }
 
   return 0;
@@ -185,6 +192,13 @@ int main(int argc, char **argv) {
     if (client_socket < 0) {
       error("Error al aceptar un nuevo cliente");
     }
+	else {
+		puts("Accepted a new client");
+	}
+
+	accept_message(&server);
+
+	Sleep(1000);
   }
 
   return 0;
