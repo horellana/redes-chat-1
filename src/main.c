@@ -123,14 +123,23 @@ int accept_client(struct Server *server) {
   return 0;
 }
 
-void send_message(int client, char *message, int message_length) {
-	send(client, message, message_length, 0);
+void send_message(int client, char *message, int message_length, int sender) {
+	if (message_length < 0)
+		return;
+
+	char buffer[BUFFER_SIZE];
+	int buffer_length = message_length + 3;
+
+	memset(buffer, '\0', BUFFER_SIZE);
+	snprintf(buffer, buffer_length, "%d: %s", sender, message);
+
+	send(client, buffer, buffer_length, 0);
 }
 
 void broadcast(struct Server *server, char *message, int message_length, int sender) {
   for (int i = 0; i < server->client_count; i++) {
 	  if (i != sender) {
-		  send_message(server->clients[i].socket, message, message_length);
+		  send_message(server->clients[i].socket, message, message_length, sender);
 	  }
   }
 }
@@ -198,7 +207,7 @@ int main(int argc, char **argv) {
 
 	accept_message(&server);
 
-	Sleep(1000);
+	Sleep(100);
   }
 
   return 0;
